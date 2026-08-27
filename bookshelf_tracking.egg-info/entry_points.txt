@@ -1,0 +1,2 @@
+[console_scripts]
+bookshelf-tracking = bookshelf_tracking:app

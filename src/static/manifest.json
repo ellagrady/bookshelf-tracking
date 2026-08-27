@@ -1,0 +1,17 @@
+{
+  "name": "Shelfmark Book Tracker",
+  "short_name": "Shelfmark",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f6f4ef",
+  "theme_color": "#17252b",
+  "description": "Track which shelf holds each book.",
+  "icons": [
+    {
+      "src": "/static/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

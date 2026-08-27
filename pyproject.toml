@@ -1,0 +1,9 @@
+[project]
+name = "bookshelf-tracking"
+version = "0.1.0"
+description = "A personal mobile-friendly book shelf tracker."
+requires-python = ">=3.11"
+dependencies = ["flask>=3.0.0", "pymongo>=4.8.0"]
+
+[project.scripts]
+bookshelf-tracking = "bookshelf_tracking:main"

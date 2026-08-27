@@ -1,0 +1,7 @@
+Metadata-Version: 2.4
+Name: bookshelf-tracking
+Version: 0.1.0
+Summary: A personal mobile-friendly book shelf tracker.
+Requires-Python: >=3.11
+Requires-Dist: flask>=3.0.0
+Requires-Dist: pymongo>=4.8.0

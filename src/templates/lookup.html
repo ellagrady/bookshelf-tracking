@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}Find a book · Shelfmark{% endblock %}
+{% block content %}
+<section class="form-page"><p class="eyebrow">Book lookup</p><h1>Find a book</h1><p class="muted">Enter an ISBN or use your camera to find its details.</p>
+<form class="book-form" method="post" action="{{ url_for('lookup') }}">
+  <label for="isbn-lookup-input">ISBN</label><input id="isbn-lookup-input" name="isbn" inputmode="numeric" placeholder="Enter ISBN" autofocus required>
+  <button class="button scan-camera" type="button" data-scanner-target="isbn-lookup-input"{% if request.args.get('scan') %} data-scanner-autostart{% endif %}>Use camera to scan</button>
+  <div class="form-actions"><a href="{{ url_for('index') }}">Cancel</a><button class="button button-dark" type="submit">Find metadata</button></div>
+</form></section>
+{% endblock %}

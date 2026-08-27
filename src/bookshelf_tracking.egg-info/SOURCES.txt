@@ -1,0 +1,9 @@
+README.md
+pyproject.toml
+src/bookshelf_tracking.py
+src/bookshelf_tracking.egg-info/PKG-INFO
+src/bookshelf_tracking.egg-info/SOURCES.txt
+src/bookshelf_tracking.egg-info/dependency_links.txt
+src/bookshelf_tracking.egg-info/entry_points.txt
+src/bookshelf_tracking.egg-info/requires.txt
+src/bookshelf_tracking.egg-info/top_level.txt
