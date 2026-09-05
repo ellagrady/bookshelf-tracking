@@ -9,7 +9,7 @@
 <section class="book-grid" aria-label="Books">
   {% for book in books %}<a class="book-card" href="{{ url_for('edit_book', book_id=book.book_id) }}">
     {% if cover_url(book) %}<img src="{{ cover_url(book) }}" alt="Cover of {{ book.title }}">{% else %}<div class="cover-placeholder">{{ book.title[:1] }}</div>{% endif %}
-    <div class="book-info"><p class="shelf-label">{{ book.location or "Unsorted" }}</p><h2>{{ book.title }}</h2><p class="author">{{ book.authors|join(', ') or 'Unknown author' }}</p>{% if book.notes %}<p class="book-notes">{{ book.notes }}</p>{% endif %}<p class="isbn">{{ book.isbn or 'No ISBN' }}</p></div>
+    <div class="book-info"><p class="shelf-label">{{ shelf_name(book) }}</p><h2>{{ book.title }}</h2><p class="author">{{ book.authors|join(', ') or 'Unknown author' }}</p>{% if book.notes %}<p class="book-notes">{{ book.notes }}</p>{% endif %}<p class="isbn">{{ book.isbn or 'No ISBN' }}</p></div>
   </a>{% endfor %}
 </section>
 {% else %}<div class="empty"><span class="empty-mark">+</span><h2>No books here yet</h2><p>Add a book manually or scan an ISBN to begin your collection.</p><a class="button" href="{{ url_for('add_book') }}">Add your first book</a></div>{% endif %}

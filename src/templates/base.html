@@ -38,7 +38,7 @@
   <script src="https://unpkg.com/@zxing/browser@0.1.5/umd/zxing-browser.min.js" defer></script>
   <script src="{{ url_for('static', filename='app.js') }}" defer></script>
   <script>
-    if ('serviceWorker' in navigator) navigator.serviceWorker.register('{{ url_for('static', filename='sw.js', v=2) }}');
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('{{ url_for("static", filename="sw.js", v=3) }}');
     document.addEventListener('click', (event) => {
       const menus = document.querySelectorAll('nav details');
       menus.forEach((menu) => {

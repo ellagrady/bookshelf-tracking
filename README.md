@@ -59,6 +59,7 @@ database connection timeout; it defaults to 5 seconds.
 - Browse shelves and open each shelf as its own page.
 - Search the bookshelf, shelves, and books within an individual shelf.
 - Store books in memory by default or persist them in MongoDB.
+- Persist shelf categories in a separate MongoDB `shelves` collection; books reference shelves through `shelf_id`.
 - Install the app as a mobile home-screen shortcut with a PWA manifest and service worker.
 
 ## MongoDB and Render
@@ -86,6 +87,10 @@ Start command: gunicorn --chdir src --bind 0.0.0.0:$PORT bookshelf_tracking:app
 ```
 
 The Render service provides HTTPS, which is required for camera scanning.
+
+On startup, older book documents that contain only `location` are migrated to
+matching shelf records and assigned a stable `shelf_id`. The legacy `location`
+value is retained for compatibility while the shelf relationship uses the ID.
 
 ## StoryGraph
 

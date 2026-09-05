@@ -1,4 +1,4 @@
-const CACHE_NAME = 'shelfmark-v2';
+const CACHE_NAME = 'shelfmark-v3';
 // Cache only the small app shell needed to open the installed shortcut offline.
 const APP_SHELL = [
   '/',
@@ -23,7 +23,11 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Navigation and static assets use cache-first behavior; form submissions stay online.
+  // Keep pages current so installed home-screen apps receive updated form behavior.
   if (event.request.method !== 'GET') return;
+  if (event.request.mode === 'navigate') {
+    event.respondWith(fetch(event.request).catch(() => caches.match('/')));
+    return;
+  }
   event.respondWith(caches.match(event.request).then((cached) => cached || fetch(event.request)));
 });
