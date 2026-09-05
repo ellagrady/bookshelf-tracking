@@ -58,7 +58,14 @@ class MongoBookRepository:
         from pymongo import MongoClient
 
         database_name = os.getenv("MONGODB_DATABASE", "bookshelf")
-        self.collection = MongoClient(uri)[database_name]["books"]
+        timeout_ms = int(os.getenv("MONGODB_TIMEOUT_MS", "5000"))
+        client = MongoClient(
+            uri,
+            connectTimeoutMS=timeout_ms,
+            serverSelectionTimeoutMS=timeout_ms,
+            socketTimeoutMS=timeout_ms,
+        )
+        self.collection = client[database_name]["books"]
 
     def list(self) -> list[Book]:
         return [Book(**{key: value for key, value in row.items() if key != "_id"}) for row in self.collection.find()]
@@ -156,6 +163,11 @@ def create_app(book_repository: BookRepository | None = None) -> Flask:
         matching_shelves = [(shelf, shelf_items) for shelf, shelf_items in grouped.items() if term and term in shelf.lower()]
         matching_books = [] if matching_shelves else [book for book in books.list() if term and (term in book.title.lower() or term in " ".join(book.authors).lower() or term in book.location.lower() or term in book.notes.lower())]
         return render_template("shelf_search_results.html", query=request.args.get("q", ""), books=matching_books, shelves=matching_shelves)
+
+    @app.get("/books/search")
+    def search_books():
+        term = request.args.get("q", "").strip()
+        return render_template("shelf_search_results.html", query=term, books=matching_books(term), shelves=[])
 
     @app.get("/shelves/<path:shelf_name>")
     def shelf_detail(shelf_name: str):

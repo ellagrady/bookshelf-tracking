@@ -2,8 +2,8 @@
 {% block title %}Books · Shelfmark{% endblock %}
 {% block content %}
 <section class="page-heading bookshelf-heading">
-  <div><p class="eyebrow">Your collection</p><h1>Bookshelf</h1><p class="muted">{{ books|length }} book{% if books|length != 1 %}s{% endif %}{% if query %} matching “{{ query }}”{% endif %}</p></div>
-  <details class="inline-search bookshelf-search"><summary class="icon-button" aria-label="Search bookshelf" title="Search bookshelf">⌕</summary><form method="get" action="{{ url_for('index') }}"><input id="query" name="q" value="{{ query }}" placeholder="Title, author, or shelf" aria-label="Search bookshelf"><button class="button" type="submit">Search</button></form></details>
+  <div><p class="eyebrow">Your collection</p><h1>All Books</h1><p class="muted">{{ books|length }} book{% if books|length != 1 %}s{% endif %}{% if query %} matching “{{ query }}”{% endif %}</p></div>
+  <div class="page-actions"><button class="icon-button" type="button" id="open-book-search" aria-label="Search bookshelf" title="Search bookshelf">⌕</button></div>
 </section>
 {% if books %}
 <section class="book-grid" aria-label="Books">
@@ -13,4 +13,6 @@
   </a>{% endfor %}
 </section>
 {% else %}<div class="empty"><span class="empty-mark">+</span><h2>No books here yet</h2><p>Add a book manually or scan an ISBN to begin your collection.</p><a class="button" href="{{ url_for('add_book') }}">Add your first book</a></div>{% endif %}
+<dialog id="book-search-dialog" class="search-dialog"><div class="scanner-heading"><h2>Search bookshelf</h2><button class="dialog-close" type="button" id="close-book-search" aria-label="Close search">×</button></div><form id="book-search-form" method="get" action="{{ url_for('search_books') }}"><label for="book-query">Search</label><div class="input-row"><input id="book-query" name="q" placeholder="Title, author, shelf, or notes" required><button class="button button-dark" type="submit">Search</button></div></form><div id="book-search-results" class="search-results"></div></dialog>
+<script>const bookSearchDialog = document.querySelector('#book-search-dialog'); const bookSearchForm = document.querySelector('#book-search-form'); const bookSearchResults = document.querySelector('#book-search-results'); document.querySelector('#open-book-search').addEventListener('click', () => bookSearchDialog.showModal()); document.querySelector('#close-book-search').addEventListener('click', () => bookSearchDialog.close()); bookSearchDialog.addEventListener('cancel', () => bookSearchDialog.close()); bookSearchForm.addEventListener('submit', async (event) => { event.preventDefault(); bookSearchResults.innerHTML = '<p class="search-result-count">Searching...</p>'; const response = await fetch(`${bookSearchForm.action}?${new URLSearchParams(new FormData(bookSearchForm))}`); bookSearchResults.innerHTML = await response.text(); });</script>
 {% endblock %}

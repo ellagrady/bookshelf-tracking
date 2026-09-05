@@ -1,10 +1,10 @@
-const CACHE_NAME = 'shelfmark-v1';
+const CACHE_NAME = 'shelfmark-v2';
 const APP_SHELL = [
   '/',
   '/static/style.css',
   '/static/app.js',
   '/static/manifest.json',
-  '/static/icon.svg',
+  '/static/icon.svg?v=2',
 ];
 
 self.addEventListener('install', (event) => {
