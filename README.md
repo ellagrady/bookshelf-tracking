@@ -55,6 +55,7 @@ database connection timeout; it defaults to 5 seconds.
 - Edit book title, author, ISBN, shelf, and notes after saving.
 - Delete books with confirmation.
 - Create shelf categories, including shelves with no books yet.
+- Rename or delete shelves; deleting a shelf moves its books to `Unsorted` instead of deleting them.
 - Browse shelves and open each shelf as its own page.
 - Search the bookshelf, shelves, and books within an individual shelf.
 - Store books in memory by default or persist them in MongoDB.

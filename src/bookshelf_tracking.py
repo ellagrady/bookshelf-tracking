@@ -44,7 +44,7 @@ class MemoryBookRepository:
         return list(self.books)
 
     def save(self, book: Book) -> Book:
-        existing = next((item for item in self.books if item.isbn and item.isbn == book.isbn), None)
+        existing = next((item for item in self.books if item.book_id == book.book_id or (item.isbn and item.isbn == book.isbn)), None)
         if existing:
             self.books[self.books.index(existing)] = book
         else:
@@ -77,10 +77,7 @@ class MongoBookRepository:
 
     def save(self, book: Book) -> Book:
         payload = asdict(book)
-        if book.isbn:
-            self.collection.replace_one({"isbn": book.isbn}, payload, upsert=True)
-        else:
-            self.collection.insert_one(payload)
+        self.collection.replace_one({"book_id": book.book_id}, payload, upsert=True)
         return book
 
     def delete(self, book: Book) -> None:
@@ -211,6 +208,41 @@ def create_app(book_repository: BookRepository | None = None) -> Flask:
         else:
             shelf_categories.add(name)
             flash(f"Shelf '{name}' added.", "success")
+        return redirect(url_for("shelves"))
+
+    @app.route("/shelves/<path:shelf_name>/edit", methods=["GET", "POST"])
+    def edit_shelf(shelf_name: str):
+        if shelf_name not in shelf_books():
+            return "Shelf not found", 404
+        if request.method == "POST":
+            new_name = request.form.get("name", "").strip()
+            if not new_name:
+                flash("A shelf name is required.", "error")
+                return render_template("edit_shelf.html", shelf=shelf_name)
+            if new_name != shelf_name and new_name in shelf_names():
+                flash("That shelf already exists.", "error")
+                return render_template("edit_shelf.html", shelf=shelf_name)
+            for book in books.list():
+                if book.location == shelf_name:
+                    book.location = new_name
+                    books.save(book)
+            shelf_categories.discard(shelf_name)
+            shelf_categories.add(new_name)
+            flash(f"Renamed shelf to {new_name}.", "success")
+            return redirect(url_for("shelf_detail", shelf_name=new_name))
+        return render_template("edit_shelf.html", shelf=shelf_name)
+
+    @app.post("/shelves/<path:shelf_name>/delete")
+    def delete_shelf(shelf_name: str):
+        if shelf_name not in shelf_books():
+            return "Shelf not found", 404
+        for book in books.list():
+            if book.location == shelf_name:
+                book.location = "Unsorted"
+                books.save(book)
+        shelf_categories.discard(shelf_name)
+        shelf_categories.add("Unsorted")
+        flash(f"Deleted shelf {shelf_name}. Books moved to Unsorted.", "success")
         return redirect(url_for("shelves"))
 
     @app.route("/books/add", methods=["GET", "POST"])

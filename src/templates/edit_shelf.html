@@ -1,0 +1,5 @@
+{% extends "base.html" %}
+{% block title %}Edit <Script:module></Script:module>helf {% endblock %}
+{% block content %}
+<section class="form-page"><p class="eyebrow">Shelf settings</p><h1>Edit Shelf</h1><form class="book-form" method="post"><label for="shelf-name">Shelf Name</label><input id="shelf-name" name="name" value="{{ shelf }}" required autofocus><div class="form-actions"><a href="{{ url_for('shelves') }}">Cancel</a><button class="button button-dark" type="submit">Save Shelf</button></div></form></section>
+{% endblock %}
