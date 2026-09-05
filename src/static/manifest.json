@@ -8,9 +8,9 @@
   "description": "Track which shelf holds each book.",
   "icons": [
     {
-      "src": "/static/icon.svg?v=2",
+      "src": "/static/icon.png",
       "sizes": "any",
-      "type": "image/svg+xml",
+      "type": "image/png",
       "purpose": "any maskable"
     }
   ]
