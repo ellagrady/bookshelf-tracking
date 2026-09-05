@@ -14,6 +14,7 @@ from flask import Flask, flash, redirect, render_template, request, url_for
 
 @dataclass
 class Book:
+    """The fields displayed and persisted for one physical book."""
     title: str
     book_id: str = field(default_factory=lambda: str(uuid.uuid4()))
     authors: list[str] = field(default_factory=list)
@@ -28,12 +29,14 @@ class Book:
 
 
 class BookRepository(Protocol):
+    """Storage contract shared by the in-memory and MongoDB repositories."""
     def list(self) -> list[Book]: ...
     def save(self, book: Book) -> Book: ...
     def delete(self, book: Book) -> None: ...
 
 
 class MemoryBookRepository:
+    """Small default repository for local development and tests."""
     def __init__(self) -> None:
         self.books: list[Book] = []
 
@@ -54,10 +57,12 @@ class MemoryBookRepository:
 
 
 class MongoBookRepository:
+    """MongoDB-backed repository used when MONGODB_URI is configured."""
     def __init__(self, uri: str) -> None:
         from pymongo import MongoClient
 
         database_name = os.getenv("MONGODB_DATABASE", "bookshelf")
+        # Keep an unavailable database from blocking Render's health check indefinitely.
         timeout_ms = int(os.getenv("MONGODB_TIMEOUT_MS", "5000"))
         client = MongoClient(
             uri,
@@ -83,19 +88,23 @@ class MongoBookRepository:
 
 
 def repository() -> BookRepository:
+    """Choose persistent storage only when the deployment supplies MongoDB credentials."""
     uri = os.getenv("MONGODB_URI")
     return MongoBookRepository(uri) if uri else MemoryBookRepository()
 
 
 def clean_isbn(value: str) -> str:
+    """Normalize scanner and user input to digits plus the ISBN-10 check character."""
     return "".join(character for character in value if character.isdigit() or character.upper() == "X").upper()
 
 
 def cover_url_for_isbn(isbn: str) -> str:
+    """Build the Open Library cover URL without making a server-side image request."""
     return f"https://covers.openlibrary.org/b/isbn/{isbn}-L.jpg" if isbn else ""
 
 
 def lookup_isbn(isbn: str) -> Book:
+    """Fetch book metadata from Open Library and map it into the local model."""
     query = urllib.parse.urlencode({"bibkeys": f"ISBN:{isbn}", "format": "json", "jscmd": "data"})
     with urllib.request.urlopen(f"https://openlibrary.org/api/books?{query}", timeout=8) as response:
         data = json.load(response).get(f"ISBN:{isbn}", {})
@@ -123,12 +132,14 @@ def lookup_isbn(isbn: str) -> Book:
 
 
 def create_app(book_repository: BookRepository | None = None) -> Flask:
+    """Create the Flask app, injecting a repository for tests when supplied."""
     app = Flask(__name__)
     app.secret_key = os.getenv("FLASK_SECRET_KEY", "shelfmark-development-key")
     books = book_repository or repository()
     shelf_categories = {"Unsorted"}
 
     def shelf_names() -> list[str]:
+        # Shelf categories are derived from books plus categories added in this process.
         shelf_categories.update(book.location for book in books.list() if book.location)
         return sorted(shelf_categories, key=lambda shelf: (shelf != "Unsorted", shelf.lower()))
 
@@ -138,15 +149,18 @@ def create_app(book_repository: BookRepository | None = None) -> Flask:
     app.jinja_env.globals["cover_url"] = cover_url
 
     def matching_books(term: str = "") -> list[Book]:
+        """Search the collection by the fields users can see or edit."""
         term = term.strip().lower()
         return [book for book in books.list() if not term or term in book.title.lower() or term in " ".join(book.authors).lower() or term in book.location.lower() or term in book.notes.lower()]
 
     @app.get("/")
     def index():
+        """Render the main collection, optionally filtered by the bookshelf search."""
         term = request.args.get("q", "")
         return render_template("books.html", books=matching_books(term), query=term)
 
     def shelf_books() -> dict[str, list[Book]]:
+        """Group books by shelf while retaining empty shelf categories."""
         grouped: dict[str, list[Book]] = {shelf: [] for shelf in shelf_names()}
         for book in books.list():
             grouped.setdefault(book.location or "Unsorted", []).append(book)
@@ -158,6 +172,7 @@ def create_app(book_repository: BookRepository | None = None) -> Flask:
 
     @app.get("/shelves/search")
     def search_shelves():
+        """Return HTML fragments for the Shelves page's in-dialog search."""
         term = request.args.get("q", "").strip().lower()
         grouped = shelf_books()
         matching_shelves = [(shelf, shelf_items) for shelf, shelf_items in grouped.items() if term and term in shelf.lower()]
@@ -166,11 +181,13 @@ def create_app(book_repository: BookRepository | None = None) -> Flask:
 
     @app.get("/books/search")
     def search_books():
+        """Return the same result-card fragment for the Bookshelf search dialog."""
         term = request.args.get("q", "").strip()
         return render_template("shelf_search_results.html", query=term, books=matching_books(term), shelves=[])
 
     @app.get("/shelves/<path:shelf_name>")
     def shelf_detail(shelf_name: str):
+        """Render one shelf and optionally filter books within that shelf."""
         grouped = shelf_books()
         if shelf_name not in grouped:
             return "Shelf not found", 404
@@ -187,6 +204,7 @@ def create_app(book_repository: BookRepository | None = None) -> Flask:
 
     @app.post("/shelves/add")
     def add_shelf():
+        """Add a named shelf category without requiring a book first."""
         name = request.form.get("name", "").strip()
         if not name:
             flash("A shelf name is required.", "error")
@@ -197,6 +215,7 @@ def create_app(book_repository: BookRepository | None = None) -> Flask:
 
     @app.route("/books/add", methods=["GET", "POST"])
     def add_book():
+        """Render or save a new book from manual or ISBN-assisted entry."""
         if request.method == "POST":
             title = request.form.get("title", "").strip()
             if not title:
@@ -220,6 +239,7 @@ def create_app(book_repository: BookRepository | None = None) -> Flask:
 
     @app.route("/books/<book_id>", methods=["GET", "POST"])
     def edit_book(book_id: str):
+        """Render or save the editable details for one book."""
         book = next((item for item in books.list() if item.book_id == book_id), None)
         if not book:
             return "Book not found", 404
@@ -241,6 +261,7 @@ def create_app(book_repository: BookRepository | None = None) -> Flask:
 
     @app.post("/books/<book_id>/delete")
     def delete_book(book_id: str):
+        """Delete a book after the edit page's client-side confirmation."""
         book = next((item for item in books.list() if item.book_id == book_id), None)
         if not book:
             return "Book not found", 404
@@ -250,6 +271,7 @@ def create_app(book_repository: BookRepository | None = None) -> Flask:
 
     @app.route("/lookup", methods=["GET", "POST"])
     def lookup():
+        """Show the ISBN lookup form or turn lookup metadata into an editable book form."""
         if request.method == "GET":
             return render_template("lookup.html")
         isbn = clean_isbn(request.form.get("isbn", ""))
@@ -264,6 +286,7 @@ def create_app(book_repository: BookRepository | None = None) -> Flask:
         flash("Metadata found. Add its shelf before saving.", "success")
         return render_template("add_book.html", form={"title": book.title, "authors": ", ".join(book.authors), "isbn": book.isbn, "location": book.location, "publisher": book.publisher, "published": book.published, "cover_url": book.cover_url, "source": book.source, "notes": book.notes}, shelves=shelf_names())
 
+    # placeholder should storygraph ever publish an API for this, the following route could be uncommented to allow users to refresh their books from storygraph.
     # @app.post("/refresh")
     # def refresh():
     #     try:
@@ -283,6 +306,7 @@ app = create_app()
 
 
 def main() -> None:
+    """Run the development server; Render uses Gunicorn's app object instead."""
     app.run(
         host=os.getenv("FLASK_HOST", "127.0.0.1"),
         port=int(os.getenv("FLASK_PORT", "5000")),

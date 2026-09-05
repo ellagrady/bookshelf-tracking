@@ -1,4 +1,5 @@
 (() => {
+  // Scanner pages share one dialog, so the script can stay independent of the current route.
   const dialog = document.querySelector('#scanner-dialog');
   const video = document.querySelector('#scanner-video');
   const status = document.querySelector('.scanner-status');
@@ -10,6 +11,7 @@
   if (!dialog || !video) return;
 
   const stopScanner = () => {
+    // Stop both ZXing and the browser media tracks before closing the dialog.
     if (stopping) return;
     stopping = true;
     try {
@@ -27,6 +29,7 @@
 
   document.querySelectorAll('[data-scanner-target]').forEach((button) => {
     button.addEventListener('click', async () => {
+      // The button stores the target input so the same scanner works on lookup pages.
       const input = document.getElementById(button.dataset.scannerTarget);
       if (!window.ZXingBrowser) {
         dialog.showModal();
@@ -43,6 +46,7 @@
           video,
           (result, error) => {
             if (result) {
+              // Keep the scanned value in the form; the user submits the lookup explicitly.
               input.value = result.getText().replace(/[^0-9X]/gi, '').toUpperCase();
               stopScanner();
               input.focus();

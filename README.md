@@ -35,10 +35,10 @@ port:
 gunicorn --chdir src --bind 0.0.0.0:$PORT bookshelf_tracking:app
 ```
 
-On the Books page, tap **Use camera to scan**, allow camera access, and point the
-rear camera at the book's ISBN barcode. The scan fills the ISBN field and sends
-it to Open Library. If camera access is unavailable, the ISBN can still be
-entered manually.
+From the **+ Add book** menu, choose manual entry, ISBN lookup, or camera scan.
+Allow camera access and point the rear camera at the book's ISBN barcode. The
+scan fills the ISBN field; submit it to Open Library to retrieve metadata. If
+camera access is unavailable, the ISBN can still be entered manually.
 
 The app uses an in-memory repository by default, so it is usable immediately. To persist books in MongoDB, set `MONGODB_URI` and optionally `MONGODB_DATABASE` before launching.
 
@@ -50,9 +50,45 @@ database connection timeout; it defaults to 5 seconds.
 ## Features
 
 - Add books manually or look up ISBN metadata through Open Library.
-- Use a hardware scanner that types into the ISBN field, then press Enter.
-- Search by title, author, or shelf location.
-- Group books by shelf.
-- Unless Storygraph comes out with an API, not functional~~Refresh physical books from a compatible `storygraph-api` service by setting `STORYGRAPH_API_URL`.~~
+- Scan ISBN barcodes with a phone camera or use a hardware scanner.
+- Display Open Library cover images for books with ISBNs.
+- Edit book title, author, ISBN, shelf, and notes after saving.
+- Delete books with confirmation.
+- Create shelf categories, including shelves with no books yet.
+- Browse shelves and open each shelf as its own page.
+- Search the bookshelf, shelves, and books within an individual shelf.
+- Store books in memory by default or persist them in MongoDB.
+- Install the app as a mobile home-screen shortcut with a PWA manifest and service worker.
 
-~~StoryGraph integrations are configured through an adapter endpoint because deployments and response shapes can vary. The expected response is either a list of books or `{ "books": [...] }`, with each item containing `title`, optional `authors`, `isbn`, and `format`.~~
+## MongoDB and Render
+
+The app uses the in-memory repository unless `MONGODB_URI` is set. For MongoDB
+Atlas, configure these environment variables in Render:
+
+```text
+MONGODB_URI=mongodb+srv://USERNAME:PASSWORD@cluster.mongodb.net/?retryWrites=true&w=majority
+MONGODB_DATABASE=bookshelf
+MONGODB_TIMEOUT_MS=5000
+FLASK_SECRET_KEY=replace-with-a-secret-value
+```
+
+URL-encode special characters in the MongoDB password. In Atlas, allow the
+Render service to connect through **Network Access** and grant the database
+user read/write access. `0.0.0.0/0` can be used temporarily for testing, but
+restrict access where possible.
+
+For a Render Web Service, use:
+
+```text
+Build command: pip install -e . gunicorn
+Start command: gunicorn --chdir src --bind 0.0.0.0:$PORT bookshelf_tracking:app
+```
+
+The Render service provides HTTPS, which is required for camera scanning.
+
+## StoryGraph
+
+StoryGraph import is not currently enabled. The previously explored
+`storygraph-api` package scrapes public StoryGraph pages, requires a user cookie,
+and does not provide all of the ISBN and cover data this app needs. Books can
+instead be added through Open Library lookup or manual entry.
