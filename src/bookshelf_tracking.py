@@ -26,6 +26,7 @@ class Book:
     location: str = "Unsorted"
     notes: str = ""
     source: str = "manual"
+    read: bool = True
     updated_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
 
@@ -100,6 +101,7 @@ class MongoBookRepository:
         )
         self.collection = client[database_name]["books"]
         self.shelf_collection = client[database_name]["shelves"]
+        self.collection.update_many({"read": {"$exists": False}}, {"$set": {"read": True}})
 
     def list(self) -> list[Book]:
         return [Book(**{key: value for key, value in row.items() if key != "_id"}) for row in self.collection.find()]
@@ -229,7 +231,8 @@ def create_app(book_repository: BookRepository | None = None) -> Flask:
 
     @app.get("/shelves")
     def shelves():
-        return render_template("shelves.html", shelves=sorted(shelf_books().values(), key=lambda item: (item[0].name != "Unsorted", item[0].name.lower())))
+        shelf_items = sorted(shelf_books().values(), key=lambda item: (item[0].name != "Unsorted", item[0].name.lower()))
+        return render_template("shelves.html", shelves=shelf_items)
 
     @app.get("/shelves/search")
     def search_shelves():
@@ -254,6 +257,11 @@ def create_app(book_repository: BookRepository | None = None) -> Flask:
             return "Shelf not found", 404
         term = request.args.get("q", "").strip().lower()
         shelf_items = shelf_books()[shelf.shelf_id][1]
+        read_count = sum(book.read for book in shelf_items)
+        unread_count = len(shelf_items) - read_count
+        status = request.args.get("status", "").strip().lower()
+        if status in {"read", "unread"}:
+            shelf_items = [book for book in shelf_items if book.read == (status == "read")]
         if term:
             shelf_items = [
                 book for book in shelf_items
@@ -261,7 +269,7 @@ def create_app(book_repository: BookRepository | None = None) -> Flask:
                 or term in " ".join(book.authors).lower()
                 or term in book.notes.lower()
             ]
-        return render_template("shelf.html", shelf=shelf.name, books=shelf_items, query=request.args.get("q", ""))
+        return render_template("shelf.html", shelf=shelf.name, books=shelf_items, query=request.args.get("q", ""), status=status, read_count=read_count, unread_count=unread_count)
 
     @app.post("/shelves/add")
     def add_shelf():
@@ -277,6 +285,7 @@ def create_app(book_repository: BookRepository | None = None) -> Flask:
 
     @app.route("/shelves/<path:shelf_name>/edit", methods=["GET", "POST"])
     def edit_shelf(shelf_name: str):
+        """Edit a named shelf category without requiring a book first. Renaming a shelf updates all books in that shelf."""
         shelf = shelf_by_route_name(shelf_name)
         if shelf is None:
             return "Shelf not found", 404
@@ -301,6 +310,7 @@ def create_app(book_repository: BookRepository | None = None) -> Flask:
 
     @app.post("/shelves/<path:shelf_name>/delete")
     def delete_shelf(shelf_name: str):
+        """Delete a shelf and move all its books to Unsorted."""
         shelf = shelf_by_route_name(shelf_name)
         if shelf is None:
             return "Shelf not found", 404
@@ -318,20 +328,25 @@ def create_app(book_repository: BookRepository | None = None) -> Flask:
         """Render or save a new book from manual or ISBN-assisted entry."""
         if request.method == "POST":
             title = request.form.get("title", "").strip()
+            isbn = clean_isbn(request.form.get("isbn", ""))
             if not title:
                 flash("A title is required.", "error")
+                return render_template("add_book.html", form=request.form, shelves=shelf_names())
+            if isbn and any(book.isbn == isbn for book in books.list()):
+                flash("That ISBN is already in your collection.", "error")
                 return render_template("add_book.html", form=request.form, shelves=shelf_names())
             book = Book(
                 title=title,
                 authors=[value.strip() for value in request.form.get("authors", "").split(",") if value.strip()],
-                isbn=clean_isbn(request.form.get("isbn", "")),
+                isbn=isbn,
                 publisher=request.form.get("publisher", ""),
                 published=request.form.get("published", ""),
-                cover_url=request.form.get("cover_url", "") or cover_url_for_isbn(clean_isbn(request.form.get("isbn", ""))),
+                cover_url=request.form.get("cover_url", "") or cover_url_for_isbn(isbn),
                 shelf_id=(shelf_by_route_name(request.form.get("location", "").strip() or "Unsorted") or unsorted).shelf_id,
                 location=request.form.get("location", "").strip() or "Unsorted",
                 notes=request.form.get("notes", "").strip(),
                 source=request.form.get("source", "manual"),
+                read=request.form.get("read") == "on",
             )
             books.save(book)
             flash(f"Saved {book.title}.", "success")
@@ -351,16 +366,21 @@ def create_app(book_repository: BookRepository | None = None) -> Flask:
                 return render_template("add_book.html", form={**request.form, "book_id": book_id}, shelves=shelf_names(), edit=True)
             book.title = title
             book.authors = [value.strip() for value in request.form.get("authors", "").split(",") if value.strip()]
-            book.isbn = clean_isbn(request.form.get("isbn", ""))
+            isbn = clean_isbn(request.form.get("isbn", ""))
+            if isbn and any(item.book_id != book_id and item.isbn == isbn for item in books.list()):
+                flash("That ISBN is already in your collection.", "error")
+                return render_template("add_book.html", form={**request.form, "book_id": book_id}, shelves=shelf_names(), edit=True)
+            book.isbn = isbn
             book.cover_url = cover_url_for_isbn(book.isbn)
             selected_shelf = shelf_by_route_name(request.form.get("location", "").strip() or "Unsorted") or unsorted
             book.shelf_id = selected_shelf.shelf_id
             book.location = selected_shelf.name
             book.notes = request.form.get("notes", "").strip()
+            book.read = request.form.get("read") == "on"
             books.save(book)
             flash(f"Updated {book.title}.", "success")
             return redirect(url_for("index"))
-        return render_template("add_book.html", form={"book_id": book.book_id, "title": book.title, "authors": ", ".join(book.authors), "isbn": book.isbn, "location": shelf_name(book), "notes": book.notes, "publisher": book.publisher, "published": book.published, "cover_url": book.cover_url, "source": book.source}, shelves=shelf_names(), edit=True)
+        return render_template("add_book.html", form={"book_id": book.book_id, "title": book.title, "authors": ", ".join(book.authors), "isbn": book.isbn, "location": shelf_name(book), "notes": book.notes, "publisher": book.publisher, "published": book.published, "cover_url": book.cover_url, "source": book.source, "read": book.read}, shelves=shelf_names(), edit=True)
 
     @app.post("/books/<book_id>/delete")
     def delete_book(book_id: str):
@@ -381,6 +401,10 @@ def create_app(book_repository: BookRepository | None = None) -> Flask:
         if not isbn:
             flash("Enter an ISBN to look it up.", "error")
             return redirect(url_for("index"))
+        existing_book = next((book for book in books.list() if clean_isbn(book.isbn) == isbn), None)
+        if existing_book:
+            flash("This book is already on your shelf.", "error")
+            return redirect(url_for("edit_book", book_id=existing_book.book_id))
         try:
             book = lookup_isbn(isbn)
         except Exception as error:

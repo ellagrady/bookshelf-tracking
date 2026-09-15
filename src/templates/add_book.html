@@ -8,6 +8,7 @@
   <label for="authors">Author(s)</label><input id="authors" name="authors" value="{{ form.get('authors', '') }}" placeholder="Separate multiple authors with commas">
   <label for="isbn">ISBN</label><input id="isbn" name="isbn" value="{{ form.get('isbn', '') }}" inputmode="numeric">
   <label for="location">Shelf</label><select id="location" name="location">{% for shelf in shelves %}<option value="{{ shelf }}"{% if form.get('location', 'Unsorted') == shelf %} selected{% endif %}>{{ shelf }}</option>{% endfor %}</select>
+  <label class="switch-label"><span>Read</span><input class="switch-input" type="checkbox" name="read"{% if form.get('read', True) %} checked{% endif %}><span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span></label>
   <label for="notes">Notes</label><textarea id="notes" name="notes" rows="4" placeholder="Add a note about this book">{{ form.get('notes', '') }}</textarea>
   <div class="form-actions"><a href="{{ url_for('index') }}">Cancel</a><div class="edit-actions">{% if edit %}<button class="button button-danger" type="button" id="delete-book-button">Delete book</button>{% endif %}<button class="button button-dark" type="submit">{{ 'Save changes' if edit else 'Save book' }}</button></div></div>
 </form></section>
