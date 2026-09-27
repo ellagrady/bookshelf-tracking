@@ -142,15 +142,74 @@ def cover_url_for_isbn(isbn: str) -> str:
 
 
 def lookup_isbn(isbn: str) -> Book:
-    """Fetch book metadata from Open Library and map it into the local model."""
-    query = urllib.parse.urlencode({"bibkeys": f"ISBN:{isbn}", "format": "json", "jscmd": "data"})
-    with urllib.request.urlopen(f"https://openlibrary.org/api/books?{query}", timeout=8) as response:
-        data = json.load(response).get(f"ISBN:{isbn}", {})
+    """Fetch book metadata from Open Library using the ISBN endpoint and search fallback."""
+    isbn = clean_isbn(isbn)
+    if not isbn:
+        raise ValueError("A valid ISBN is required.")
+        
+    # query ISBN API first, then fall back to search API if author data is missing
+    request = urllib.request.Request(
+        f"https://openlibrary.org/isbn/{isbn}.json",
+        headers={"Accept": "application/json"},
+    )
+    with urllib.request.urlopen(request, timeout=8) as response:
+        data = json.load(response)
+
+    authors: list[str] = []
+    raw_authors = data.get("authors") or []
+    for author in raw_authors:
+        if isinstance(author, str):
+            authors.append(author)
+            continue
+        if not isinstance(author, dict):
+            continue
+        author_name = author.get("name")
+        if author_name:
+            authors.append(author_name)
+            continue
+        key = author.get("key")
+        if not key:
+            continue
+        author_key = key.strip("/").split("/")[-1]
+        author_url = f"https://openlibrary.org/authors/{author_key}.json"
+        with urllib.request.urlopen(
+            urllib.request.Request(author_url, headers={"Accept": "application/json"}),
+            timeout=8,
+        ) as author_response:
+            author_data = json.load(author_response)
+        author_name = author_data.get("name")
+        if author_name:
+            authors.append(author_name)
+
+    if not authors:
+        search_request = urllib.request.Request(
+            f"https://openlibrary.org/search.json?q={isbn}",
+            headers={"Accept": "application/json"},
+        )
+        with urllib.request.urlopen(search_request, timeout=8) as search_response:
+            search_data = json.load(search_response)
+        docs = search_data.get("docs") or []
+        if docs:
+            doc = docs[0]
+            author_names = doc.get("author_name") or []
+            if isinstance(author_names, list):
+                authors = [name for name in author_names if isinstance(name, str)]
+
+    publisher = ""
+    publishers = data.get("publishers") or []
+    if isinstance(publishers, list):
+        if publishers and isinstance(publishers[0], dict):
+            publisher = publishers[0].get("name", "")
+        elif publishers and isinstance(publishers[0], str):
+            publisher = publishers[0]
+    elif isinstance(publishers, dict):
+        publisher = publishers.get("name", "")
+
     return Book(
         title=data.get("title", "Untitled book"),
-        authors=[author.get("name", "") for author in data.get("authors", [])],
+        authors=authors,
         isbn=isbn,
-        publisher=(data.get("publishers") or [{}])[0].get("name", ""),
+        publisher=publisher,
         published=data.get("publish_date", ""),
         cover_url=cover_url_for_isbn(isbn),
         source="openlibrary",
