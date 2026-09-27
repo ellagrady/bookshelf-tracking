@@ -38,7 +38,9 @@ gunicorn --chdir src --bind 0.0.0.0:$PORT bookshelf_tracking:app
 From the **+ Add book** menu, choose manual entry, ISBN lookup, or camera scan.
 Allow camera access and point the rear camera at the book's ISBN barcode. The
 scan fills the ISBN field; submit it to Open Library to retrieve metadata. If
-camera access is unavailable, the ISBN can still be entered manually.
+camera access is unavailable, the ISBN can still be entered manually. ISBN lookup
+uses the current Open Library ISBN JSON endpoint, with a search fallback when a
+record omits author data.
 
 The app uses an in-memory repository by default, so it is usable immediately. To persist books in MongoDB, set `MONGODB_URI` and optionally `MONGODB_DATABASE` before launching.
 
@@ -49,7 +51,7 @@ database connection timeout; it defaults to 5 seconds.
 
 ## Features
 
-- Add books manually or look up ISBN metadata through Open Library.
+- Add books manually or look up ISBN metadata through Open Library using the current ISBN API and metadata fallback.
 - Scan ISBN barcodes with a phone camera or use a hardware scanner.
 - Display Open Library cover images for books with ISBNs.
 - Edit book title, author, ISBN, shelf, and notes after saving.
