@@ -1,6 +1,7 @@
 import json
+import re
 
-from bookshelf_tracking import lookup_isbn
+from bookshelf_tracking import Book, MemoryBookRepository, Shelf, create_app, lookup_isbn
 
 
 class FakeResponse:
@@ -76,3 +77,23 @@ def test_lookup_isbn_falls_back_to_search_results_for_missing_author_data(monkey
     assert book.authors == ["John Green"]
     assert book.publisher == "Penguin Random House"
     assert book.isbn == isbn
+
+
+def test_books_pages_sort_by_author_last_name():
+    repo = MemoryBookRepository()
+    shelf = Shelf(name="Classic Fiction")
+    repo.save_shelf(shelf)
+
+    repo.save(Book(title="The Last Book", authors=["John Steinbeck"], shelf_id=shelf.shelf_id, location=shelf.name))
+    repo.save(Book(title="A Quiet Place", authors=["Zoe Adams"], shelf_id=shelf.shelf_id, location=shelf.name))
+    repo.save(Book(title="Another Story", authors=["Jane Austen"], shelf_id=shelf.shelf_id, location=shelf.name))
+
+    app = create_app(repo)
+    with app.test_client() as client:
+        all_books_response = client.get("/")
+        all_titles = re.findall(r"<h2>(.*?)</h2>", all_books_response.get_data(as_text=True))
+        assert all_titles.index("A Quiet Place") < all_titles.index("Another Story") < all_titles.index("The Last Book")
+
+        shelf_response = client.get("/shelves/Classic%20Fiction")
+        shelf_titles = re.findall(r"<h2>(.*?)</h2>", shelf_response.get_data(as_text=True))
+        assert shelf_titles.index("A Quiet Place") < shelf_titles.index("Another Story") < shelf_titles.index("The Last Book")

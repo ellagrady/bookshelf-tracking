@@ -136,6 +136,25 @@ def clean_isbn(value: str) -> str:
     return "".join(character for character in value if character.isdigit() or character.upper() == "X").upper()
 
 
+def author_name(book: Book) -> str:
+    """Return the primary author's name as a list for deterministic sorting."""
+    if not book.authors:
+        return ""
+    primary = book.authors[0].strip()
+
+    if not primary:
+        return ""
+    if "," in primary:
+        return primary.split(",", 1)[0].strip().lower()
+    parts = primary.split()
+    return [parts[-1].lower() if parts else primary.lower(), parts[0].lower() if len(parts) > 1 else ""]
+
+
+def sort_books_by_author(book_list: list[Book]) -> list[Book]:
+    """Sort books alphabetically by author last name, author first name, then title."""
+    return sorted(book_list, key=lambda book: (author_name(book)[0], author_name(book)[1], book.title.lower(), book.book_id))
+
+
 def cover_url_for_isbn(isbn: str) -> str:
     """Build the Open Library cover URL without making a server-side image request."""
     return f"https://covers.openlibrary.org/b/isbn/{isbn}-L.jpg" if isbn else ""
@@ -272,7 +291,15 @@ def create_app(book_repository: BookRepository | None = None) -> Flask:
     def matching_books(term: str = "") -> list[Book]:
         """Search the collection by the fields users can see or edit."""
         term = term.strip().lower()
-        return [book for book in books.list() if not term or term in book.title.lower() or term in " ".join(book.authors).lower() or term in shelf_name(book).lower() or term in book.notes.lower()]
+        matches = [
+            book for book in books.list()
+            if not term
+            or term in book.title.lower()
+            or term in " ".join(book.authors).lower()
+            or term in shelf_name(book).lower()
+            or term in book.notes.lower()
+        ]
+        return sort_books_by_author(matches)
 
     @app.get("/")
     def index():
@@ -286,6 +313,8 @@ def create_app(book_repository: BookRepository | None = None) -> Flask:
         for book in books.list():
             shelf = next((item for item in books.list_shelves() if item.shelf_id == book.shelf_id), unsorted)
             grouped.setdefault(shelf.shelf_id, (shelf, []))[1].append(book)
+        for shelf_id, (_, shelf_books_list) in grouped.items():
+            grouped[shelf_id] = (grouped[shelf_id][0], sort_books_by_author(shelf_books_list))
         return grouped
 
     @app.get("/shelves")
@@ -328,6 +357,7 @@ def create_app(book_repository: BookRepository | None = None) -> Flask:
                 or term in " ".join(book.authors).lower()
                 or term in book.notes.lower()
             ]
+        shelf_items = sort_books_by_author(shelf_items)
         return render_template("shelf.html", shelf=shelf.name, books=shelf_items, query=request.args.get("q", ""), status=status, read_count=read_count, unread_count=unread_count)
 
     @app.post("/shelves/add")
