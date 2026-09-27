@@ -307,14 +307,14 @@ def create_app(book_repository: BookRepository | None = None) -> Flask:
         term = request.args.get("q", "")
         return render_template("books.html", books=matching_books(term), query=term)
 
-    def shelf_books() -> dict[str, tuple[Shelf, list[Book]]]:
+    def shelf_books(sort_by_author: bool = False) -> dict[str, tuple[Shelf, list[Book]]]:
         """Group books by persistent shelf ID while retaining empty shelves."""
         grouped: dict[str, tuple[Shelf, list[Book]]] = {shelf.shelf_id: (shelf, []) for shelf in books.list_shelves()}
         for book in books.list():
             shelf = next((item for item in books.list_shelves() if item.shelf_id == book.shelf_id), unsorted)
             grouped.setdefault(shelf.shelf_id, (shelf, []))[1].append(book)
         for shelf_id, (_, shelf_books_list) in grouped.items():
-            grouped[shelf_id] = (grouped[shelf_id][0], sort_books_by_author(shelf_books_list))
+            grouped[shelf_id] = (grouped[shelf_id][0], sort_books_by_author(shelf_books_list) if sort_by_author else shelf_books_list)
         return grouped
 
     @app.get("/shelves")
@@ -344,7 +344,8 @@ def create_app(book_repository: BookRepository | None = None) -> Flask:
         if shelf is None:
             return "Shelf not found", 404
         term = request.args.get("q", "").strip().lower()
-        shelf_items = shelf_books()[shelf.shelf_id][1]
+        sort_by_author = request.args.get("sort", "").strip().lower() == "author"
+        shelf_items = shelf_books(sort_by_author=sort_by_author)[shelf.shelf_id][1]
         read_count = sum(book.read for book in shelf_items)
         unread_count = len(shelf_items) - read_count
         status = request.args.get("status", "").strip().lower()
@@ -357,8 +358,9 @@ def create_app(book_repository: BookRepository | None = None) -> Flask:
                 or term in " ".join(book.authors).lower()
                 or term in book.notes.lower()
             ]
-        shelf_items = sort_books_by_author(shelf_items)
-        return render_template("shelf.html", shelf=shelf.name, books=shelf_items, query=request.args.get("q", ""), status=status, read_count=read_count, unread_count=unread_count)
+        if sort_by_author:
+            shelf_items = sort_books_by_author(shelf_items)
+        return render_template("shelf.html", shelf=shelf.name, books=shelf_items, query=request.args.get("q", ""), status=status, read_count=read_count, unread_count=unread_count, sort_by_author=sort_by_author)
 
     @app.post("/shelves/add")
     def add_shelf():

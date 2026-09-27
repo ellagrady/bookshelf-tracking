@@ -91,9 +91,13 @@ def test_books_pages_sort_by_author_last_name():
     app = create_app(repo)
     with app.test_client() as client:
         all_books_response = client.get("/")
-        all_titles = re.findall(r"<h2>(.*?)</h2>", all_books_response.get_data(as_text=True))
+        all_titles = re.findall(r"<a class=\"book-card\"[^>]*>.*?<h2>(.*?)</h2>", all_books_response.get_data(as_text=True), flags=re.DOTALL)
         assert all_titles.index("A Quiet Place") < all_titles.index("Another Story") < all_titles.index("The Last Book")
 
         shelf_response = client.get("/shelves/Classic%20Fiction")
-        shelf_titles = re.findall(r"<h2>(.*?)</h2>", shelf_response.get_data(as_text=True))
-        assert shelf_titles.index("A Quiet Place") < shelf_titles.index("Another Story") < shelf_titles.index("The Last Book")
+        shelf_titles = re.findall(r"<a class=\"book-card\"[^>]*>.*?<h2>(.*?)</h2>", shelf_response.get_data(as_text=True), flags=re.DOTALL)
+        assert shelf_titles == ["The Last Book", "A Quiet Place", "Another Story"]
+
+        author_sorted_response = client.get("/shelves/Classic%20Fiction?sort=author")
+        author_sorted_titles = re.findall(r"<a class=\"book-card\"[^>]*>.*?<h2>(.*?)</h2>", author_sorted_response.get_data(as_text=True), flags=re.DOTALL)
+        assert author_sorted_titles.index("A Quiet Place") < author_sorted_titles.index("Another Story") < author_sorted_titles.index("The Last Book")

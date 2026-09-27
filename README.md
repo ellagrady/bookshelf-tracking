@@ -59,10 +59,15 @@ database connection timeout; it defaults to 5 seconds.
 - Create shelf categories, including shelves with no books yet.
 - Rename or delete shelves; deleting a shelf moves its books to `Unsorted` instead of deleting them.
 - Browse shelves and open each shelf as its own page.
+- Switch a shelf between insert order and author-sorted order from the shelf detail header.
 - Search the bookshelf, shelves, and books within an individual shelf.
 - Store books in memory by default or persist them in MongoDB.
 - Persist shelf categories in a separate MongoDB `shelves` collection; books reference shelves through `shelf_id`.
 - Install the app as a mobile home-screen shortcut with a PWA manifest and service worker.
+
+## Shelf sorting
+
+Each shelf detail page shows the current book count, followed by a compact sort indicator directly beneath it. The indicator toggles between the default insertion order and an author-sorted view without leaving the shelf page, so you can quickly reorder a shelf while keeping the page layout stable.
 
 ## MongoDB and Render
 
